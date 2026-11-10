@@ -1,0 +1,32 @@
+# Binaries and build output
+backend/bin/
+backend/baramail-api
+backend/baramail-cli
+backend/*.exe
+frontend/dist/
+cloudflare/email-worker/.wrangler/
+cloudflare/email-worker/dist/
+
+# Dependencies
+frontend/node_modules/
+cloudflare/email-worker/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+cloudflare/email-worker/.dev.vars
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Coverage and logs
+*.out
+*.log
+

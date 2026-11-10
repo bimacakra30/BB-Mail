@@ -1,0 +1,25 @@
+:80 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+		}
+	}
+
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+}
+

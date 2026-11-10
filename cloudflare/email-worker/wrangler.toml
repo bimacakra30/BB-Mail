@@ -1,0 +1,30 @@
+name = "baramail-email-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[vars]
+BARAMAIL_API_URL = "https://app.example.com/api/v1/webhooks/email"
+MAX_EMAIL_SIZE_BYTES = "5242880"
+
+# Set secrets via CLI:
+# wrangler secret put BARAMAIL_WEBHOOK_SECRET
+# Optional Cloudflare Access Service Token:
+# wrangler secret put CF_ACCESS_CLIENT_ID
+# wrangler secret put CF_ACCESS_CLIENT_SECRET
+
+# Optional durable buffer bindings (see docs/CLOUDFLARE_SETUP.md):
+# [[r2_buckets]]
+# binding = "BARAMAIL_DLQ_BUCKET"
+# bucket_name = "baramail-email-buffer"
+#
+# [[queues.producers]]
+# binding = "BARAMAIL_RETRY_QUEUE"
+# queue = "baramail-email-retry"
+#
+# [[queues.consumers]]
+# queue = "baramail-email-retry"
+# max_batch_size = 10
+# max_Wait_time_ms = 5000
+# max_retries = 5
+# dead_letter_queue = "baramail-email-dlq"
+
