@@ -30,7 +30,21 @@ Apa yang terjadi secara otomatis saat perintah di atas dijalankan:
 2. **`baramail-backend`** meng-compile aplikasi Go, menunggu MySQL siap, menjalankan migrasi seluruh tabel (`migrations/001_initial_schema.sql`), mengisi daftar domain awal (`ALLOWED_EMAIL_DOMAINS`), dan membuat akun admin (`ADMIN_INITIAL_USERNAME` & `ADMIN_INITIAL_PASSWORD`).
 3. **`baramail-caddy`** meng-compile frontend Vue 3 (`deploy/Dockerfile.caddy`) dan langsung menyajikan web + proxy `/api` pada port `WEB_PORT` (default `8085`).
 
-## 3. Reset Password / Tambah Admin Manual via CLI (Opsional)
+## 3. Pindah Server (Backup & Restore 1 Perintah)
+
+Gunakan script `migrate.sh` di root project untuk mem-backup seluruh isi database MySQL sekaligus file `.env` ke dalam 1 file `.tar.gz`, lalu me-restore-nya di VPS baru:
+
+```bash
+chmod +x ~/BB-Mail/migrate.sh
+
+# Di server lama (menghasilkan baramail-backup-YYYYMMDD-HHMMSS.tar.gz):
+~/BB-Mail/migrate.sh backup
+
+# Di server baru (otomatis restore .env, nyalakan Docker, dan import database MySQL):
+~/BB-Mail/migrate.sh restore baramail-backup-20261110-103500.tar.gz
+```
+
+## 4. Reset Password / Tambah Admin Manual via CLI (Opsional)
 
 Jika di kemudian hari Anda ingin mereset password atau menambah akun admin lain:
 
