@@ -1,140 +1,123 @@
 <template>
   <div class="modal-backdrop" @click.self="$emit('close')">
-    <div class="modal-panel" style="max-width: 680px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3 style="margin: 0;">Bulk Create Mailbox</h3>
-        <button class="btn btn-outline btn-sm" type="button" @click="$emit('close')">Tutup</button>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="bulk-title">
+      <div class="modal-head">
+        <h2 id="bulk-title">Buat massal</h2>
+        <button type="button" class="btn sm" @click="$emit('close')">Tutup</button>
       </div>
 
-      <form v-if="!report" @submit.prevent="submitBulk">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Domain Aktif</label>
-            <select v-model.number="domainId" class="select" required>
+      <form v-if="!report" class="stack" @submit.prevent="submitBulk">
+        <div class="grid-2">
+          <div class="field">
+            <label for="b-domain">Domain</label>
+            <select id="b-domain" v-model.number="domainId" class="select" required>
               <option v-for="d in activeDomains" :key="d.id" :value="d.id">@{{ d.name }}</option>
             </select>
           </div>
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Masa Aktif (Hari)</label>
-            <input v-model.number="expiresInDays" type="number" min="1" :max="maxExpiryDays" class="input" required />
+          <div class="field">
+            <label for="b-expiry">Masa aktif (hari)</label>
+            <input id="b-expiry" v-model.number="expiresInDays" type="number" min="1" :max="maxExpiryDays" class="input" required />
           </div>
         </div>
 
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Mode Bulk</label>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button type="button" class="btn btn-sm" :class="mode === 'random' ? '' : 'btn-outline'" @click="mode = 'random'">
-              Jumlah Alamat Acak
+        <div class="field">
+          <span class="label">Cara membuat</span>
+          <div class="row" role="radiogroup" aria-label="Cara membuat">
+            <button type="button" role="radio" :aria-checked="mode === 'random'" class="btn" :class="{ 'is-on': mode === 'random' }" @click="mode = 'random'">
+              Alamat acak
             </button>
-            <button type="button" class="btn btn-sm" :class="mode === 'sequence' ? '' : 'btn-outline'" @click="mode = 'sequence'">
-              Prefix + Nomor Urut
+            <button type="button" role="radio" :aria-checked="mode === 'sequence'" class="btn" :class="{ 'is-on': mode === 'sequence' }" @click="mode = 'sequence'">
+              Awalan + nomor urut
             </button>
-            <button type="button" class="btn btn-sm" :class="mode === 'list' ? '' : 'btn-outline'" @click="mode = 'list'">
-              Tempel Daftar Custom
+            <button type="button" role="radio" :aria-checked="mode === 'list'" class="btn" :class="{ 'is-on': mode === 'list' }" @click="mode = 'list'">
+              Tempel daftar
             </button>
           </div>
         </div>
 
-        <div v-if="mode === 'random'" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Jumlah Mailbox (Maks {{ maxBulk }})</label>
-            <input v-model.number="count" type="number" min="1" :max="maxBulk" class="input" required />
+        <div v-if="mode === 'random'" class="grid-2">
+          <div class="field">
+            <label for="b-count">Jumlah (maks {{ maxBulk }})</label>
+            <input id="b-count" v-model.number="count" type="number" min="1" :max="maxBulk" class="input" required />
           </div>
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Panjang Local-Part</label>
-            <input v-model.number="length" type="number" min="6" max="64" class="input" required />
-          </div>
-        </div>
-
-        <div v-else-if="mode === 'sequence'" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Prefix</label>
-            <input v-model="prefix" class="input" placeholder="mis. user-" required />
-          </div>
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Mulai Nomor</label>
-            <input v-model.number="start" type="number" min="1" class="input" required />
-          </div>
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Jumlah (Maks {{ maxBulk }})</label>
-            <input v-model.number="count" type="number" min="1" :max="maxBulk" class="input" required />
+          <div class="field">
+            <label for="b-length">Panjang karakter</label>
+            <input id="b-length" v-model.number="length" type="number" min="6" max="64" class="input" required />
           </div>
         </div>
 
-        <div v-else style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">
-            Daftar Local-Part (Satu per baris, maks {{ maxBulk }})
-          </label>
-          <textarea
-            v-model="rawAddressList"
-            rows="6"
-            class="textarea"
-            placeholder="budi01&#10;budi02&#10;toko-a"
-            required
-          ></textarea>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Owner Ref (Opsional)</label>
-            <input v-model="ownerRef" class="input" placeholder="mis. cust-0012" />
+        <div v-else-if="mode === 'sequence'" class="grid-3">
+          <div class="field">
+            <label for="b-prefix">Awalan</label>
+            <input id="b-prefix" v-model="prefix" class="input" placeholder="user-" required autocapitalize="off" />
           </div>
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Catatan (Opsional)</label>
-            <input v-model="note" class="input" placeholder="mis. batch november" />
+          <div class="field">
+            <label for="b-start">Mulai dari nomor</label>
+            <input id="b-start" v-model.number="start" type="number" min="1" class="input" required />
+          </div>
+          <div class="field">
+            <label for="b-count2">Jumlah (maks {{ maxBulk }})</label>
+            <input id="b-count2" v-model.number="count" type="number" min="1" :max="maxBulk" class="input" required />
           </div>
         </div>
 
-        <div v-if="errorMsg" class="error-alert" style="margin-bottom: 1rem;">{{ errorMsg }}</div>
+        <div v-else class="field">
+          <label for="b-list">Daftar nama alamat (satu per baris, maks {{ maxBulk }})</label>
+          <textarea id="b-list" v-model="rawAddressList" rows="6" class="textarea" placeholder="budi01&#10;budi02&#10;toko-a" required></textarea>
+        </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-          <button type="button" class="btn btn-outline" @click="$emit('close')">Batal</button>
-          <button type="submit" class="btn" :disabled="submitting || activeDomains.length === 0">
-            {{ submitting ? 'Memproses...' : 'Jalankan Bulk Create' }}
+        <div class="grid-2">
+          <div class="field">
+            <label for="b-owner">Owner ref (opsional)</label>
+            <input id="b-owner" v-model="ownerRef" class="input" placeholder="cust-0012" />
+          </div>
+          <div class="field">
+            <label for="b-note">Catatan (opsional)</label>
+            <input id="b-note" v-model="note" class="input" placeholder="Batch November" />
+          </div>
+        </div>
+
+        <div v-if="errorMsg" class="error" role="alert">{{ errorMsg }}</div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" @click="$emit('close')">Batal</button>
+          <button type="submit" class="btn primary" :disabled="submitting || activeDomains.length === 0">
+            {{ submitting ? "Memproses..." : "Buat mailbox" }}
           </button>
         </div>
       </form>
 
-      <div v-else>
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-          <span class="badge badge-active">Dibuat: {{ report.created_count }}</span>
-          <span class="badge badge-disabled">Dilewati (Duplikat): {{ report.skipped_count }}</span>
-          <span class="badge badge-expired">Tidak Valid: {{ report.invalid_count }}</span>
+      <div v-else class="stack">
+        <div class="row">
+          <span class="badge ok">Dibuat {{ report.created_count }}</span>
+          <span class="badge off">Dilewati (sudah ada) {{ report.skipped_count }}</span>
+          <span class="badge bad">Tidak valid {{ report.invalid_count }}</span>
         </div>
 
-        <div class="table-wrap" style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border);">
+        <div class="table-wrap" style="max-height: 320px; overflow-y: auto;">
           <table>
             <thead>
               <tr>
-                <th>Alamat / Input</th>
-                <th>Status</th>
+                <th>Alamat</th>
+                <th>Hasil</th>
                 <th>Keterangan</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(item, idx) in report.items" :key="idx">
-                <td><code>{{ item.email || item.input }}</code></td>
+                <td class="cell-main">{{ item.email || item.input }}</td>
                 <td>
-                  <span
-                    class="badge"
-                    :class="{
-                      'badge-active': item.status === 'created',
-                      'badge-disabled': item.status === 'skipped_duplicate',
-                      'badge-expired': item.status === 'invalid',
-                    }"
-                  >
-                    {{ item.status }}
-                  </span>
+                  <span class="badge" :class="resultBadge[item.status].cls">{{ resultBadge[item.status].label }}</span>
                 </td>
-                <td>{{ item.reason || '-' }}</td>
+                <td class="meta">{{ item.reason || "-" }}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <button type="button" class="btn btn-outline btn-sm" @click="downloadReportCSV">Unduh Hasil CSV</button>
-          <button type="button" class="btn" @click="$emit('completed')">Selesai</button>
+        <div class="modal-actions">
+          <button type="button" class="btn" @click="downloadReportCSV">Unduh hasil CSV</button>
+          <button type="button" class="btn primary" @click="$emit('completed')">Selesai</button>
         </div>
       </div>
     </div>
@@ -145,7 +128,7 @@
 import { computed, onMounted, ref } from "vue";
 import { ApiError, apiRequest } from "../api/client";
 import { useAdminStore } from "../stores/admin";
-import type { BulkCreateReport, Domain } from "../types";
+import type { BulkCreateReport, BulkItemResult, Domain } from "../types";
 
 const props = defineProps<{
   domains: Domain[];
@@ -155,6 +138,12 @@ defineEmits<{
   (e: "close"): void;
   (e: "completed"): void;
 }>();
+
+const resultBadge: Record<BulkItemResult["status"], { label: string; cls: string }> = {
+  created: { label: "Dibuat", cls: "ok" },
+  skipped_duplicate: { label: "Sudah ada", cls: "off" },
+  invalid: { label: "Tidak valid", cls: "bad" },
+};
 
 const adminStore = useAdminStore();
 const activeDomains = computed(() => props.domains.filter((d) => d.status === "active"));
@@ -211,7 +200,7 @@ async function submitBulk(): Promise<void> {
       }),
     });
   } catch (err) {
-    errorMsg.value = err instanceof ApiError ? err.message : "Gagal memproses bulk create.";
+    errorMsg.value = err instanceof ApiError ? err.message : "Pembuatan massal gagal. Periksa isian lalu coba lagi.";
   } finally {
     submitting.value = false;
   }
@@ -228,9 +217,8 @@ function downloadReportCSV(): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `baramail-bulk-report-${Date.now()}.csv`;
+  a.download = `baramail-hasil-buat-massal-${Date.now()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 </script>
-

@@ -1,120 +1,93 @@
 <template>
   <PublicLayout>
-    <PublicWarningBanner style="margin-bottom: 1rem;" />
+    <div class="stack">
+      <PublicWarningBanner />
 
-    <div class="card" style="margin-bottom: 1rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+      <div class="inbox-head">
         <div>
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <strong style="font-size: 1.1rem;">{{ inboxStore.currentEmail }}</strong>
-            <button type="button" class="btn btn-outline btn-sm" @click="copyText(inboxStore.currentEmail, 'Alamat')">
-              {{ copiedLabel === 'Alamat' ? 'Tersalin!' : 'Salin Alamat' }}
+          <h1 class="inbox-address">{{ inboxStore.currentEmail }}</h1>
+          <p class="meta">
+            Aktif sampai {{ formatDateTime(inboxStore.expiresAt) }}
+            <template v-if="inboxStore.lastUpdatedAt"> · diperbarui {{ formatDateTime(inboxStore.lastUpdatedAt) }}</template>
+          </p>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" @click="copyAddress">
+            {{ addressCopied ? "Alamat tersalin" : "Salin alamat" }}
+          </button>
+          <button type="button" class="btn" :disabled="inboxStore.loading" @click="manualRefresh">
+            {{ inboxStore.loading ? "Memuat..." : "Refresh" }}
+          </button>
+          <button type="button" class="btn" @click="switchAddress">Ganti alamat</button>
+        </div>
+      </div>
+
+      <div v-if="inboxStore.error" class="error" role="alert">{{ inboxStore.error }}</div>
+
+      <article v-if="inboxStore.selectedMessage" class="panel stack">
+        <div class="row">
+          <button type="button" class="btn sm" @click="inboxStore.selectedMessage = null">&larr; Kembali ke daftar</button>
+          <span class="spacer" />
+          <button type="button" class="btn sm" @click="copyBody">
+            {{ bodyCopied ? "Teks tersalin" : "Salin seluruh teks" }}
+          </button>
+        </div>
+
+        <div class="message-card" style="cursor: default; padding: 0; border: none;">
+          <div>
+            <h2 class="message-title">{{ inboxStore.selectedMessage.subject || "(Tanpa subjek)" }}</h2>
+            <p class="meta">Dari {{ inboxStore.selectedMessage.sender }}</p>
+            <p class="meta">Kepada {{ inboxStore.selectedMessage.recipient }}</p>
+          </div>
+          <div class="message-side">
+            <span class="meta">{{ formatDateTime(inboxStore.selectedMessage.received_at) }}</span>
+            <OtpBox v-if="detailOtp" :code="detailOtp" />
+          </div>
+        </div>
+
+        <pre class="plain-body"><template v-for="(seg, idx) in bodySegments" :key="idx"><a
+          v-if="seg.isLink"
+          :href="seg.text"
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+        >{{ seg.text }}</a><template v-else>{{ seg.text }}</template></template></pre>
+      </article>
+
+      <template v-else>
+        <div v-if="inboxStore.messages.length === 0 && !inboxStore.loading" class="empty">
+          Belum ada pesan. Kirim email ke alamat ini lalu tekan Refresh. Inbox juga diperbarui otomatis setiap
+          {{ inboxStore.pollIntervalSeconds }} detik.
+        </div>
+
+        <div v-else class="stack" style="gap: 12px;">
+          <article
+            v-for="msg in inboxStore.messages"
+            :key="msg.id"
+            class="message-card"
+            @click="inboxStore.fetchMessageDetail(msg.id)"
+          >
+            <div>
+              <h3>
+                <a href="#" class="title-link" @click.prevent.stop="inboxStore.fetchMessageDetail(msg.id)">
+                  {{ msg.subject || "(Tanpa subjek)" }}
+                </a>
+              </h3>
+              <p class="meta">Dari {{ msg.sender }}</p>
+              <p class="message-body">{{ msg.snippet || "(Pesan kosong)" }}</p>
+            </div>
+            <div class="message-side">
+              <span class="meta">{{ formatDateTime(msg.received_at) }}</span>
+              <OtpBox v-if="detectOtp(msg.snippet)" :code="detectOtp(msg.snippet) as string" />
+            </div>
+          </article>
+
+          <div v-if="inboxStore.nextBeforeId > 0" class="row" style="justify-content: center;">
+            <button type="button" class="btn" :disabled="inboxStore.loading" @click="inboxStore.loadOlderMessages">
+              Muat pesan lebih lama
             </button>
           </div>
-          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-            Aktif hingga: {{ formatDateTime(inboxStore.expiresAt) }}
-            <span v-if="inboxStore.lastUpdatedAt">
-              &middot; Diperbarui: {{ formatTimeOnly(inboxStore.lastUpdatedAt) }}
-            </span>
-          </div>
         </div>
-
-        <div style="display: flex; gap: 0.5rem;">
-          <button type="button" class="btn btn-outline btn-sm" :disabled="inboxStore.loading" @click="manualRefresh">
-            {{ inboxStore.loading ? 'Memuat...' : 'Refresh' }}
-          </button>
-          <button type="button" class="btn btn-outline btn-sm" @click="switchAddress">
-            Ganti Alamat
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="inboxStore.error" class="error-alert" style="margin-bottom: 1rem;">
-      {{ inboxStore.error }}
-    </div>
-
-    <div v-if="inboxStore.selectedMessage" class="card">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
-        <button type="button" class="btn btn-outline btn-sm" @click="inboxStore.selectedMessage = null">
-          &larr; Kembali ke Daftar
-        </button>
-        <button type="button" class="btn btn-outline btn-sm" @click="copyText(inboxStore.selectedMessage.body_text, 'Isi Email')">
-          {{ copiedLabel === 'Isi Email' ? 'Tersalin!' : 'Salin Seluruh Teks' }}
-        </button>
-      </div>
-
-      <h2 style="margin: 0 0 0.5rem; font-size: 1.2rem;">
-        {{ inboxStore.selectedMessage.subject || '(Tanpa Subjek)' }}
-      </h2>
-
-      <div style="font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-        <div><strong>Dari:</strong> {{ inboxStore.selectedMessage.sender }}</div>
-        <div><strong>Kepada:</strong> {{ inboxStore.selectedMessage.recipient }}</div>
-        <div>
-          <strong>Waktu Diterima:</strong> {{ formatDateTime(inboxStore.selectedMessage.received_at) }}
-          <span class="badge badge-disabled" style="margin-left: 0.4rem;">{{ inboxStore.selectedMessage.body_source }}</span>
-        </div>
-      </div>
-
-      <div v-if="detectedOtpCodes.length > 0" style="margin-bottom: 1rem; padding: 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
-        <span style="font-size: 0.8rem; font-weight: 600; color: #1e40af; margin-right: 0.5rem;">
-          Kode Angka Terdeteksi (Klik untuk menyalin):
-        </span>
-        <button
-          v-for="code in detectedOtpCodes"
-          :key="code"
-          type="button"
-          class="btn btn-sm"
-          style="margin-right: 0.4rem; font-family: monospace; font-size: 0.95rem;"
-          @click="copyText(code, code)"
-        >
-          {{ copiedLabel === code ? 'Tersalin!' : code }}
-        </button>
-      </div>
-
-      <pre
-        style="white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid var(--border); margin: 0;"
-      ><template v-for="(seg, idx) in bodySegments" :key="idx"><a
-        v-if="seg.isLink"
-        :href="seg.text"
-        target="_blank"
-        rel="noopener noreferrer nofollow"
-      >{{ seg.text }}</a><template v-else>{{ seg.text }}</template></template></pre>
-    </div>
-
-    <div v-else class="card" style="padding: 0;">
-      <div v-if="inboxStore.messages.length === 0 && !inboxStore.loading" style="padding: 2.5rem 1rem; text-align: center; color: var(--text-muted);">
-        Belum ada email masuk untuk alamat ini. Halaman akan diperbarui otomatis setiap {{ inboxStore.pollIntervalSeconds }} detik.
-      </div>
-
-      <div v-else>
-        <div
-          v-for="msg in inboxStore.messages"
-          :key="msg.id"
-          style="padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); cursor: pointer;"
-          @click="inboxStore.fetchMessageDetail(msg.id)"
-        >
-          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;">
-            <strong style="font-size: 0.95rem;">{{ msg.subject || '(Tanpa Subjek)' }}</strong>
-            <span style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
-              {{ formatDateTime(msg.received_at) }}
-            </span>
-          </div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem;">
-            Dari: {{ msg.sender }}
-          </div>
-          <div style="font-size: 0.85rem; color: #334155; margin-top: 0.3rem;">
-            {{ msg.snippet || '(Pesan kosong)' }}
-          </div>
-        </div>
-
-        <div v-if="inboxStore.nextBeforeId > 0" style="padding: 0.85rem; text-align: center;">
-          <button type="button" class="btn btn-outline btn-sm" :disabled="inboxStore.loading" @click="inboxStore.loadOlderMessages">
-            Muat Pesan Lebih Lama
-          </button>
-        </div>
-      </div>
+      </template>
     </div>
   </PublicLayout>
 </template>
@@ -122,28 +95,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import OtpBox from "../components/OtpBox.vue";
 import PublicWarningBanner from "../components/PublicWarningBanner.vue";
 import PublicLayout from "../layouts/PublicLayout.vue";
 import { useInboxStore } from "../stores/inbox";
+import { detectOtp, formatDateTime } from "../utils/format";
 
 const inboxStore = useInboxStore();
 const router = useRouter();
-const copiedLabel = ref<string>("");
+const addressCopied = ref<boolean>(false);
+const bodyCopied = ref<boolean>(false);
 let pollTimer: number | null = null;
 
-// Extract 4-8 digit numeric candidates as convenience chips while always displaying full original plaintext.
-const detectedOtpCodes = computed<string[]>(() => {
-  const text = inboxStore.selectedMessage?.body_text || "";
-  const matches = text.match(/\b\d{4,8}\b/g) || [];
-  return Array.from(new Set(matches)).slice(0, 5);
-});
+const detailOtp = computed<string | null>(() => detectOtp(inboxStore.selectedMessage?.body_text));
 
 interface TextSegment {
   text: string;
   isLink: boolean;
 }
 
-// Segment plaintext safely so only http:// and https:// URLs become links without rendering HTML.
+// Only http(s) URLs become links; the body is never rendered as HTML.
 const bodySegments = computed<TextSegment[]>(() => {
   const raw = inboxStore.selectedMessage?.body_text || "(Tidak ada isi teks)";
   const urlRegex = /(https?:\/\/[^\s<>()"']+)/gi;
@@ -203,26 +174,24 @@ async function switchAddress(): Promise<void> {
   await router.push("/");
 }
 
-async function copyText(text: string, label: string): Promise<void> {
+async function copyToClipboard(text: string, flag: typeof addressCopied): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    copiedLabel.value = label;
-    setTimeout(() => {
-      if (copiedLabel.value === label) copiedLabel.value = "";
-    }, 1800);
   } catch {
-    // Clipboard API may fail on insecure contexts.
+    return;
   }
+  flag.value = true;
+  setTimeout(() => {
+    flag.value = false;
+  }, 1400);
 }
 
-function formatDateTime(iso: string): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString("id-ID");
+function copyAddress(): void {
+  void copyToClipboard(inboxStore.currentEmail, addressCopied);
 }
 
-function formatTimeOnly(d: Date): string {
-  return d.toLocaleTimeString("id-ID");
+function copyBody(): void {
+  void copyToClipboard(inboxStore.selectedMessage?.body_text || "", bodyCopied);
 }
 
 onMounted(async () => {
@@ -240,4 +209,3 @@ onUnmounted(() => {
   document.removeEventListener("visibilitychange", handleVisibilityChange);
 });
 </script>
-

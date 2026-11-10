@@ -1,108 +1,91 @@
 <template>
   <div class="modal-backdrop" @click.self="$emit('close')">
-    <div class="modal-panel">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3 style="margin: 0;">Buat Mailbox Baru</h3>
-        <button class="btn btn-outline btn-sm" type="button" @click="$emit('close')">Tutup</button>
+    <form class="modal" role="dialog" aria-modal="true" aria-labelledby="create-title" @submit.prevent="submitForm">
+      <div class="modal-head">
+        <h2 id="create-title">Buat mailbox</h2>
+        <button type="button" class="btn sm" @click="$emit('close')">Tutup</button>
       </div>
 
-      <form @submit.prevent="submitForm">
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Domain Aktif</label>
-          <select v-model.number="domainId" class="select" required>
-            <option v-for="d in activeDomains" :key="d.id" :value="d.id">@{{ d.name }}</option>
-          </select>
-        </div>
+      <div v-if="activeDomains.length === 0" class="warn">
+        Belum ada domain aktif. Tambahkan atau aktifkan domain di halaman Domain terlebih dulu.
+      </div>
 
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Mode Alamat</label>
-          <div style="display: flex; gap: 0.5rem;">
-            <button
-              type="button"
-              class="btn"
-              :class="mode === 'custom' ? '' : 'btn-outline'"
-              @click="mode = 'custom'"
-            >
-              Custom (Default)
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="mode === 'random' ? '' : 'btn-outline'"
-              @click="switchToRandom"
-            >
-              Acak (Capability Address)
-            </button>
-          </div>
-        </div>
+      <div class="field">
+        <label for="c-domain">Domain</label>
+        <select id="c-domain" v-model.number="domainId" class="select" required>
+          <option v-for="d in activeDomains" :key="d.id" :value="d.id">@{{ d.name }}</option>
+        </select>
+      </div>
 
-        <div v-if="mode === 'custom'" style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Local-Part</label>
-          <div style="display: flex; align-items: center; gap: 0.4rem;">
-            <input
-              v-model="localPart"
-              class="input"
-              placeholder="mis. budi.01"
-              required
-              pattern="[a-zA-Z0-9._-]+"
-            />
-            <span style="color: var(--text-muted); font-weight: 500;">@{{ selectedDomainName }}</span>
-          </div>
-          <div class="warning-banner" style="margin-top: 0.6rem; padding: 0.6rem 0.8rem; font-size: 0.8rem;">
-            <strong>Perhatian:</strong> Alamat custom mudah ditebak. Siapa pun yang menebak
-            <code>{{ (localPart || 'nama') + '@' + selectedDomainName }}</code> dapat membuka inbox dan membaca OTP di dalamnya.
-          </div>
-        </div>
-
-        <div v-else style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Panjang Karakter Acak</label>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <input v-model.number="length" type="number" min="6" max="64" class="input" style="max-width: 110px;" @input="generatePreview" />
-            <button type="button" class="btn btn-outline btn-sm" @click="generatePreview">Perbarui Contoh</button>
-          </div>
-          <p style="margin: 0.4rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
-            Pratinjau format (dibuat oleh CSPRNG server): <code>{{ randomPreview }}@{{ selectedDomainName }}</code>
-          </p>
-        </div>
-
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Masa Aktif (Hari)</label>
-          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-            <button
-              v-for="preset in [1, 3, 7, 30]"
-              :key="preset"
-              type="button"
-              class="btn btn-sm"
-              :class="expiresInDays === preset ? '' : 'btn-outline'"
-              @click="expiresInDays = preset"
-            >
-              {{ preset }} Hari
-            </button>
-          </div>
-          <input v-model.number="expiresInDays" type="number" min="1" :max="maxExpiryDays" class="input" required />
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Owner Ref (Opsional)</label>
-            <input v-model="ownerRef" class="input" placeholder="mis. cust-0012" maxlength="100" />
-          </div>
-          <div>
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Catatan (Opsional)</label>
-            <input v-model="note" class="input" placeholder="mis. paket 1 minggu" maxlength="255" />
-          </div>
-        </div>
-
-        <div v-if="errorMsg" class="error-alert" style="margin-bottom: 1rem;">{{ errorMsg }}</div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-          <button type="button" class="btn btn-outline" @click="$emit('close')">Batal</button>
-          <button type="submit" class="btn" :disabled="submitting || activeDomains.length === 0">
-            {{ submitting ? 'Menyimpan...' : 'Buat Mailbox' }}
+      <div class="field">
+        <span class="label">Jenis alamat</span>
+        <div class="row" role="radiogroup" aria-label="Jenis alamat">
+          <button type="button" role="radio" :aria-checked="mode === 'custom'" class="btn" :class="{ 'is-on': mode === 'custom' }" @click="mode = 'custom'">
+            Nama sendiri
+          </button>
+          <button type="button" role="radio" :aria-checked="mode === 'random'" class="btn" :class="{ 'is-on': mode === 'random' }" @click="switchToRandom">
+            Acak
           </button>
         </div>
-      </form>
-    </div>
+      </div>
+
+      <template v-if="mode === 'custom'">
+        <div class="field">
+          <label for="c-local">Nama alamat</label>
+          <div class="suffix-input">
+            <input id="c-local" v-model="localPart" class="input" placeholder="budi.01" required pattern="[a-zA-Z0-9._\-]+" autocapitalize="off" spellcheck="false" />
+            <span class="suffix">@{{ selectedDomainName }}</span>
+          </div>
+        </div>
+        <div class="warn">
+          <strong>Alamat nama sendiri mudah ditebak.</strong>
+          Siapa pun yang menebak <code>{{ (localPart || "nama") + "@" + selectedDomainName }}</code> bisa membaca OTP di dalamnya.
+        </div>
+      </template>
+
+      <div v-else class="field">
+        <label for="c-length">Panjang karakter</label>
+        <input id="c-length" v-model.number="length" type="number" min="6" max="64" class="input" style="max-width: 140px;" @input="generatePreview" />
+        <span class="hint">Contoh format: <code>{{ randomPreview }}@{{ selectedDomainName }}</code>. Alamat final dibuat acak oleh server.</span>
+      </div>
+
+      <div class="field">
+        <label for="c-expiry">Masa aktif (hari)</label>
+        <div class="row">
+          <button
+            v-for="preset in [1, 3, 7, 30]"
+            :key="preset"
+            type="button"
+            class="btn sm"
+            :class="{ 'is-on': expiresInDays === preset }"
+            @click="expiresInDays = preset"
+          >
+            {{ preset }} hari
+          </button>
+        </div>
+        <input id="c-expiry" v-model.number="expiresInDays" type="number" min="1" :max="maxExpiryDays" class="input" required />
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="c-owner">Owner ref (opsional)</label>
+          <input id="c-owner" v-model="ownerRef" class="input" placeholder="cust-0012" maxlength="100" />
+        </div>
+        <div class="field">
+          <label for="c-note">Catatan (opsional)</label>
+          <input id="c-note" v-model="note" class="input" placeholder="Paket 1 minggu" maxlength="255" />
+        </div>
+      </div>
+
+      <div v-if="errorMsg" class="error" role="alert">{{ errorMsg }}</div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" @click="$emit('close')">Batal</button>
+        <button type="submit" class="btn primary" :disabled="submitting || activeDomains.length === 0">
+          {{ submitting ? "Menyimpan..." : "Buat mailbox" }}
+        </button>
+      </div>
+    </form>
   </div>
 </template>
 
@@ -183,10 +166,9 @@ async function submitForm(): Promise<void> {
     });
     emit("created", created);
   } catch (err) {
-    errorMsg.value = err instanceof ApiError ? err.message : "Gagal membuat mailbox.";
+    errorMsg.value = err instanceof ApiError ? err.message : "Mailbox gagal dibuat. Periksa isian lalu coba lagi.";
   } finally {
     submitting.value = false;
   }
 }
 </script>
-

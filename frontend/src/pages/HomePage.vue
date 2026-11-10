@@ -1,20 +1,21 @@
 <template>
   <PublicLayout>
-    <div style="max-width: 560px; margin: 1.5rem auto;">
-      <PublicWarningBanner style="margin-bottom: 1.25rem;" />
-
-      <div class="card">
-        <h1 style="margin: 0 0 0.4rem; font-size: 1.5rem;">Buka Inbox OTP</h1>
-        <p style="margin: 0 0 1.25rem; color: var(--text-muted); font-size: 0.9rem;">
-          Masukkan alamat email yang telah diaktifkan administrator untuk melihat pesan masuk dan kode verifikasi.
-          Layanan ini <strong>hanya menerima email (inbound-only)</strong> dan tidak mendukung pengiriman atau balasan email.
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>Ambil kode OTP tanpa membuka email utama.</h1>
+        <p>
+          Masukkan alamat BaraMail yang sudah dibuat admin. Pesan masuk tampil dalam hitungan detik, dan kode verifikasi bisa langsung disalin.
         </p>
+        <div class="row">
+          <span class="chip">Hanya menerima email</span>
+          <span class="chip">Tanpa login</span>
+        </div>
+      </div>
 
-        <form @submit.prevent="handleOpenInbox">
-          <div style="margin-bottom: 1rem;">
-            <label for="email-input" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">
-              Alamat Email
-            </label>
+      <div class="stack">
+        <form class="panel stack" @submit.prevent="handleOpenInbox">
+          <div class="field">
+            <label for="email-input">Alamat email</label>
             <input
               id="email-input"
               v-model="emailInput"
@@ -23,25 +24,29 @@
               placeholder="nama@domain.tld"
               required
               autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              inputmode="email"
             />
           </div>
 
-          <div v-if="errorMsg" class="error-alert" style="margin-bottom: 1rem;">
-            {{ errorMsg }}
-          </div>
+          <div v-if="errorMsg" class="error" role="alert">{{ errorMsg }}</div>
 
-          <button type="submit" class="btn" style="width: 100%; padding: 0.65rem;" :disabled="inboxStore.loading">
-            {{ inboxStore.loading ? 'Memeriksa Mailbox...' : 'Open Inbox' }}
+          <button type="submit" class="btn primary lg" :disabled="inboxStore.loading">
+            {{ inboxStore.loading ? "Membuka inbox..." : "Buka inbox" }}
           </button>
         </form>
+
+        <PublicWarningBanner />
       </div>
-    </div>
+    </section>
   </PublicLayout>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { ApiError } from "../api/client";
 import PublicWarningBanner from "../components/PublicWarningBanner.vue";
 import PublicLayout from "../layouts/PublicLayout.vue";
 import { useInboxStore } from "../stores/inbox";
@@ -55,15 +60,18 @@ async function handleOpenInbox(): Promise<void> {
   errorMsg.value = "";
   const trimmed = emailInput.value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-    errorMsg.value = "Format alamat email tidak valid.";
+    errorMsg.value = "Format alamat belum benar. Tulis lengkap seperti nama@domain.tld.";
     return;
   }
   try {
     await inboxStore.openInbox(trimmed);
     await router.push("/inbox");
-  } catch {
-    errorMsg.value = inboxStore.error || "Mailbox tidak tersedia.";
+  } catch (err) {
+    if (err instanceof ApiError && err.code === "RATE_LIMITED") {
+      errorMsg.value = "Terlalu banyak percobaan. Tunggu satu menit lalu coba lagi.";
+      return;
+    }
+    errorMsg.value = "Mailbox tidak tersedia. Periksa ejaan alamat atau tanyakan ke admin apakah alamat masih aktif.";
   }
 }
 </script>
-

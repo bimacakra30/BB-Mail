@@ -1,68 +1,65 @@
 <template>
   <PublicLayout>
-    <div class="card" style="max-width: 780px; margin: 0 auto;">
+    <article class="prose">
       <template v-if="pageType === 'terms'">
-        <h1 style="margin-top: 0;">Syarat Layanan (Terms of Service)</h1>
-        <p><strong>Pembaruan Terakhir:</strong> 10 November 2026</p>
+        <h1>Syarat layanan</h1>
+        <p class="meta">Berlaku sejak 10/11/2026</p>
 
-        <h3>1. Sifat Layanan</h3>
+        <h2>Sifat layanan</h2>
         <p>
-          BaraMail adalah layanan inbox penerima email satu arah (<em>inbound-only</em>) yang dikelola oleh administrator.
-          BaraMail tidak menyediakan fitur pengiriman email, balasan, penerusan, maupun penyimpanan jangka panjang.
+          BaraMail adalah inbox yang hanya menerima email dan dikelola oleh admin. Tidak ada fitur kirim, balas, teruskan,
+          atau penyimpanan jangka panjang.
         </p>
 
-        <h3>2. Akses Publik Tanpa Autentikasi</h3>
+        <h2>Akses tanpa login</h2>
         <p>
-          Setiap inbox dibuka hanya dengan memasukkan alamat email. <strong>Siapa pun yang mengetahui atau berhasil menebak alamat email dapat membaca seluruh pesan dan kode OTP di dalam inbox tersebut.</strong>
-          Jangan gunakan alamat BaraMail untuk perbankan, dompet digital, layanan kesehatan, akun pemerintah, email utama, atau akun sensitif lainnya.
+          Inbox dibuka hanya dengan memasukkan alamat email. Siapa pun yang tahu atau berhasil menebak alamat bisa membaca
+          seluruh pesan dan kode OTP di dalamnya. Jangan pakai BaraMail untuk perbankan, dompet digital, layanan kesehatan,
+          akun pemerintah, email utama, atau akun penting lain.
         </p>
 
-        <h3>3. Retensi Data dan Penghapusan Otomatis</h3>
+        <h2>Penyimpanan dan penghapusan otomatis</h2>
         <p>
-          Pesan dihapus secara otomatis berdasarkan batas waktu simpan (default 72 jam), batas jumlah pesan per mailbox (default 100 pesan terbaru),
-          atau ketika masa aktif mailbox/domain berakhir. Administrator berhak menonaktifkan atau menghapus mailbox kapan saja tanpa pemberitahuan.
+          Pesan dihapus otomatis setelah 72 jam, saat jumlah pesan di satu mailbox melebihi 100, atau saat masa aktif mailbox
+          maupun domain berakhir. Admin dapat menonaktifkan atau menghapus mailbox kapan saja.
         </p>
 
-        <h3>4. Larangan Penggunaan</h3>
+        <h2>Larangan</h2>
         <p>
-          Pengguna dilarang menggunakan alamat BaraMail untuk aktivitas penipuan, phishing, pelanggaran hukum, pendaftaran massal ilegal,
-          atau aktivitas yang melanggar ketentuan layanan pihak ketiga.
+          Dilarang memakai alamat BaraMail untuk penipuan, phishing, pelanggaran hukum, pendaftaran massal yang melanggar
+          aturan situs lain, atau kegiatan yang melanggar syarat layanan pihak ketiga.
         </p>
       </template>
 
       <template v-else>
-        <h1 style="margin-top: 0;">Kebijakan Penyalahgunaan (Abuse Policy)</h1>
+        <h1>Kebijakan abuse</h1>
         <p>
-          BaraMail berkomitmen mencegah penyalahgunaan domain dan layanan email kami. Seluruh pembuatan alamat dikendalikan oleh administrator
-          dan tidak terbuka untuk pendaftaran publik bebas.
+          Semua alamat BaraMail dibuat oleh admin dan tidak terbuka untuk pendaftaran publik. Kami menindak penyalahgunaan
+          domain dan alamat secepat mungkin.
         </p>
 
-        <h3>Pelaporan Penyalahgunaan</h3>
+        <h2>Cara melapor</h2>
         <p>
-          Jika Anda menemukan alamat email pada domain yang dikelola BaraMail digunakan untuk aktivitas berbahaya, penipuan, atau pelanggaran ketentuan layanan Anda,
-          silakan kirim laporan ke:
-        </p>
-        <p>
-          <strong>Email Kontak Abuse:</strong> <code>{{ abuseEmail }}</code>
+          Kirim laporan ke <code>{{ abuseEmail }}</code>. Sertakan alamat yang dilaporkan, waktu kejadian, dan bukti singkat.
         </p>
 
-        <h3>Tindakan Penanganan</h3>
+        <h2>Tindakan yang kami ambil</h2>
         <ul>
-          <li>Menonaktifkan mailbox terkait secara permanen dalam waktu singkat.</li>
-          <li>Menonaktifkan seluruh mailbox milik referensi pelanggan (<code>owner_ref</code>) yang melanggar.</li>
-          <li>Me-retire domain apabila diperlukan.</li>
+          <li>Menonaktifkan mailbox yang dilaporkan.</li>
+          <li>Menonaktifkan semua mailbox milik pelanggan yang melanggar.</li>
+          <li>Menghentikan domain bila diperlukan.</li>
         </ul>
       </template>
-    </div>
+    </article>
   </PublicLayout>
 </template>
 
 <script setup lang="ts">
+import PublicLayout from "../layouts/PublicLayout.vue";
+
 defineProps<{
   pageType: "terms" | "abuse";
 }>();
 
 const abuseEmail = import.meta.env.VITE_ABUSE_EMAIL || "abuse@example.com";
-import PublicLayout from "../layouts/PublicLayout.vue";
 </script>
-

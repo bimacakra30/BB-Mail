@@ -1,31 +1,28 @@
 <template>
-  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;">
-    <div class="card" style="max-width: 400px; width: 100%;">
-      <h1 style="margin: 0 0 0.25rem; font-size: 1.35rem;">BaraMail Admin</h1>
-      <p style="margin: 0 0 1.25rem; color: var(--text-muted); font-size: 0.875rem;">
-        Masuk untuk mengelola domain, mailbox, dan masa aktif.
-      </p>
+  <div class="login-wrap">
+    <form class="panel stack login-panel" @submit.prevent="submitLogin">
+      <span class="logo">BaraMail</span>
+      <div>
+        <h1 style="font-size: 28px; font-weight: 800;">Masuk</h1>
+        <p class="muted">Kelola mailbox, domain, dan masa aktif.</p>
+      </div>
 
-      <form @submit.prevent="submitLogin">
-        <div style="margin-bottom: 0.9rem;">
-          <label for="admin-user" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Username</label>
-          <input id="admin-user" v-model="username" class="input" required autocomplete="username" />
-        </div>
+      <div class="field">
+        <label for="admin-user">Username</label>
+        <input id="admin-user" v-model="username" class="input" required autocomplete="username" autocapitalize="off" />
+      </div>
 
-        <div style="margin-bottom: 1.1rem;">
-          <label for="admin-pass" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Password</label>
-          <input id="admin-pass" v-model="password" type="password" class="input" required autocomplete="current-password" />
-        </div>
+      <div class="field">
+        <label for="admin-pass">Password</label>
+        <input id="admin-pass" v-model="password" type="password" class="input" required autocomplete="current-password" />
+      </div>
 
-        <div v-if="errorMsg" class="error-alert" style="margin-bottom: 1rem;">
-          {{ errorMsg }}
-        </div>
+      <div v-if="errorMsg" class="error" role="alert">{{ errorMsg }}</div>
 
-        <button type="submit" class="btn" style="width: 100%; padding: 0.6rem;" :disabled="loading">
-          {{ loading ? 'Memverifikasi...' : 'Login' }}
-        </button>
-      </form>
-    </div>
+      <button type="submit" class="btn primary lg" :disabled="loading">
+        {{ loading ? "Memeriksa..." : "Masuk" }}
+      </button>
+    </form>
   </div>
 </template>
 
@@ -49,10 +46,13 @@ async function submitLogin(): Promise<void> {
     await adminStore.login(username.value.trim(), password.value);
     await router.push("/admin");
   } catch (err) {
-    errorMsg.value = err instanceof ApiError ? err.message : "Username atau password salah.";
+    if (err instanceof ApiError && (err.code === "ACCOUNT_LOCKED" || err.code === "RATE_LIMITED")) {
+      errorMsg.value = "Terlalu banyak percobaan masuk. Tunggu 15 menit lalu coba lagi.";
+    } else {
+      errorMsg.value = "Username atau password salah. Periksa lagi lalu coba masuk kembali.";
+    }
   } finally {
     loading.value = false;
   }
 }
 </script>
-

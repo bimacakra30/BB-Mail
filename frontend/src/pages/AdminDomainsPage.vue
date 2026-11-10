@@ -1,66 +1,57 @@
 <template>
   <AdminLayout>
-    <h1 style="margin: 0 0 1.25rem; font-size: 1.4rem;">Manajemen Domain</h1>
-
-    <div class="card" style="margin-bottom: 1.25rem;">
-      <form style="display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: end;" @submit.prevent="addDomain">
-        <div style="flex: 1; min-width: 240px;">
-          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">Tambah Domain Baru</label>
-          <input v-model="newDomainName" class="input" placeholder="mis. domain-baru.tld" required />
-        </div>
-        <button type="submit" class="btn" :disabled="submitting">Tambah Domain</button>
-      </form>
-      <p style="margin: 0.6rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
-        Pastikan domain telah dikonfigurasi pada Cloudflare DNS dan Email Routing sebelum digunakan.
-      </p>
+    <div class="page-head">
+      <h1>Domain</h1>
     </div>
 
-    <div v-if="errorMsg" class="error-alert" style="margin-bottom: 1rem;">{{ errorMsg }}</div>
-
-    <div class="card" style="padding: 0;">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nama Domain</th>
-              <th>Status</th>
-              <th>Jumlah Mailbox</th>
-              <th>Dibuat</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="d in domains" :key="d.id">
-              <td><strong>{{ d.name }}</strong></td>
-              <td>
-                <span class="badge" :class="d.status === 'active' ? 'badge-active' : 'badge-retired'">
-                  {{ d.status }}
-                </span>
-              </td>
-              <td>{{ d.mailbox_count }}</td>
-              <td>{{ new Date(d.created_at).toLocaleString('id-ID') }}</td>
-              <td>
-                <button
-                  v-if="d.status === 'active'"
-                  type="button"
-                  class="btn btn-danger btn-sm"
-                  @click="toggleDomainStatus(d, 'retired')"
-                >
-                  Retire Domain
-                </button>
-                <button
-                  v-else
-                  type="button"
-                  class="btn btn-outline btn-sm"
-                  @click="toggleDomainStatus(d, 'active')"
-                >
-                  Aktifkan Kembali
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <form class="panel stack" style="margin-bottom: 20px;" @submit.prevent="addDomain">
+      <div class="row" style="align-items: flex-end;">
+        <div class="field" style="flex: 1; min-width: 240px;">
+          <label for="new-domain">Tambah domain</label>
+          <input id="new-domain" v-model="newDomainName" class="input" placeholder="domain-baru.tld" required />
+        </div>
+        <button type="submit" class="btn primary" :disabled="submitting">Tambah domain</button>
       </div>
+      <p class="hint">Atur Email Routing di Cloudflare untuk domain ini sebelum membuat mailbox di dalamnya.</p>
+    </form>
+
+    <div v-if="errorMsg" class="error" role="alert" style="margin-bottom: 16px;">{{ errorMsg }}</div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nama domain</th>
+            <th>Status</th>
+            <th>Jumlah mailbox</th>
+            <th>Dibuat</th>
+            <th class="actions">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="domains.length === 0">
+            <td colspan="5" class="muted" style="text-align: center; padding: 32px;">
+              Belum ada domain. Tambahkan domain pertama di atas.
+            </td>
+          </tr>
+          <tr v-for="d in domains" :key="d.id">
+            <td class="cell-main">{{ d.name }}</td>
+            <td>
+              <span class="badge" :class="d.status === 'active' ? 'ok' : 'bad'">
+                {{ d.status === "active" ? "Aktif" : "Dihentikan" }}
+              </span>
+            </td>
+            <td>{{ d.mailbox_count }}</td>
+            <td class="meta">{{ formatDateTime(d.created_at) }}</td>
+            <td class="actions">
+              <button v-if="d.status === 'active'" type="button" class="btn sm danger" @click="toggleDomainStatus(d, 'retired')">
+                Hentikan domain
+              </button>
+              <button v-else type="button" class="btn sm" @click="toggleDomainStatus(d, 'active')">Aktifkan kembali</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </AdminLayout>
 </template>
@@ -70,9 +61,12 @@ import { onMounted, ref } from "vue";
 import { ApiError, apiRequest } from "../api/client";
 import AdminLayout from "../layouts/AdminLayout.vue";
 import { useAdminStore } from "../stores/admin";
+import { useToast } from "../stores/toast";
 import type { Domain } from "../types";
+import { formatDateTime } from "../utils/format";
 
 const adminStore = useAdminStore();
+const toast = useToast();
 const domains = ref<Domain[]>([]);
 const newDomainName = ref<string>("");
 const submitting = ref<boolean>(false);
@@ -82,7 +76,7 @@ async function loadDomains(): Promise<void> {
   try {
     domains.value = (await apiRequest<Domain[]>("/admin/domains")) || [];
   } catch (err) {
-    errorMsg.value = err instanceof ApiError ? err.message : "Gagal memuat daftar domain.";
+    errorMsg.value = err instanceof ApiError ? err.message : "Daftar domain gagal dimuat. Muat ulang halaman.";
   }
 }
 
@@ -96,9 +90,10 @@ async function addDomain(): Promise<void> {
       body: JSON.stringify({ name: newDomainName.value.trim().toLowerCase() }),
     });
     newDomainName.value = "";
+    toast.show("Domain ditambahkan");
     await loadDomains();
   } catch (err) {
-    errorMsg.value = err instanceof ApiError ? err.message : "Gagal menambahkan domain.";
+    errorMsg.value = err instanceof ApiError ? err.message : "Domain gagal ditambahkan. Periksa penulisan lalu coba lagi.";
   } finally {
     submitting.value = false;
   }
@@ -107,8 +102,8 @@ async function addDomain(): Promise<void> {
 async function toggleDomainStatus(d: Domain, nextStatus: "active" | "retired"): Promise<void> {
   const msg =
     nextStatus === "retired"
-      ? `Retire domain ${d.name}? Seluruh mailbox pada domain ini tidak akan bisa diakses publik dan tidak menerima email baru.`
-      : `Aktifkan kembali domain ${d.name}?`;
+      ? `Hentikan ${d.name}? Semua mailbox di domain ini langsung tidak bisa dibuka dan tidak menerima email baru.`
+      : `Aktifkan kembali ${d.name}?`;
   if (!window.confirm(msg)) return;
 
   errorMsg.value = "";
@@ -118,9 +113,10 @@ async function toggleDomainStatus(d: Domain, nextStatus: "active" | "retired"): 
       csrfToken: adminStore.csrfToken,
       body: JSON.stringify({ status: nextStatus }),
     });
+    toast.show(nextStatus === "retired" ? "Domain dihentikan" : "Domain diaktifkan kembali");
     await loadDomains();
   } catch (err) {
-    errorMsg.value = err instanceof ApiError ? err.message : "Gagal mengubah status domain.";
+    errorMsg.value = err instanceof ApiError ? err.message : "Status domain gagal diubah. Coba lagi.";
   }
 }
 
@@ -128,4 +124,3 @@ onMounted(() => {
   void loadDomains();
 });
 </script>
-
