@@ -52,6 +52,16 @@ func main() {
 	mailboxRepo := repositories.NewMailboxRepository(db)
 	msgRepo := repositories.NewMessageRepository(db)
 
+	if cfg.AdminInitialUsername != "" && len(cfg.AdminInitialPassword) >= 8 {
+		if _, err := adminRepo.GetByUsername(ctx, cfg.AdminInitialUsername); errors.Is(err, repositories.ErrNotFound) {
+			if hash, hashErr := services.HashPassword(cfg.AdminInitialPassword); hashErr == nil {
+				if _, createErr := adminRepo.CreateAdmin(ctx, cfg.AdminInitialUsername, nil, hash); createErr == nil {
+					logger.Info("initial_admin_bootstrapped", slog.String("username", cfg.AdminInitialUsername))
+				}
+			}
+		}
+	}
+
 	authSvc := services.NewAuthService(cfg, adminRepo)
 	mailboxSvc := services.NewMailboxService(cfg, domainRepo, mailboxRepo, msgRepo, adminRepo)
 	ingestionSvc := services.NewIngestionService(cfg, mailboxRepo, msgRepo)

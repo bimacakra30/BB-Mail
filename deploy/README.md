@@ -1,64 +1,41 @@
-# Panduan Deployment BaraMail
+# Panduan Deployment BaraMail (Full Otomatis dengan Docker Compose)
 
-Dokumen ini menjelaskan langkah deployment produksi menggunakan Docker Compose, Caddy (satu origin untuk frontend dan `/api`), dan Cloudflare Tunnel.
+Seluruh komponen (MySQL 8.4 di dalam container, Backend Go + migrasi database + bootstrap admin, serta build Frontend Vue 3 + Caddy) dijalankan **otomatis** cukup dengan satu perintah `docker compose up -d --build`.
 
-## 1. Persiapan File Konfigurasi
+## 1. Siapkan `backend/.env`
 
-1. Salin `backend/.env.example` menjadi `backend/.env` dan sesuaikan seluruh nilai secret (`ADMIN_SESSION_SECRET`, `INBOX_TOKEN_SECRET`, `WEBHOOK_SECRET`, dan `DB_PASSWORD`) dengan string acak minimal 32 byte (256-bit).
-2. Atur `WEB_PORT` di `backend/.env` (mis. `WEB_PORT=8085`) untuk menentukan port yang dibuka keluar oleh Caddy. Port internal di dalam container (`8080` untuk backend, `3306` untuk MySQL, `80` untuk Caddy) berjalan terisolasi di dalam jaringan internal Docker dan tidak bentrok dengan service lain di host.
-3. Pastikan `APP_BASE_URL` diisi dengan domain aplikasi (mis. `https://app.example.com`) dan `ALLOWED_EMAIL_DOMAINS` berisi daftar domain mailbox awal (mis. `domain-a.tld,domain-b.tld`).
-
-## 2. Build Frontend Statis
+Salin `backend/.env.example` menjadi `backend/.env` dan isi nilainya:
 
 ```bash
-cd frontend
-npm ci
-npm run build
+cp ~/BB-Mail/backend/.env.example ~/BB-Mail/backend/.env
 ```
 
-Hasil build akan berada di `frontend/dist` dan disajikan langsung oleh Caddy.
+Pastikan variabel berikut sudah diatur di `backend/.env`:
+- `WEB_PORT=8085` (port web yang dibuka keluar oleh Caddy; semua port internal container lainnya bebas dari bentrok).
+- `DB_NAME=baramail`, `DB_USER=baramail`, `DB_PASSWORD=<password-db-anda>` (akan dibuat dan disinkronkan otomatis ke container `baramail-mysql`).
+- `ADMIN_INITIAL_USERNAME=admin` dan `ADMIN_INITIAL_PASSWORD=<password-admin-min-8-karakter>` (akun admin akan dibuat otomatis saat container backend menyala).
+- `ADMIN_SESSION_SECRET`, `INBOX_TOKEN_SECRET`, `WEBHOOK_SECRET` (isi dengan string acak minimal 32 karakter).
+- `ALLOWED_EMAIL_DOMAINS=domain-a.tld,domain-b.tld` (otomatis dimasukkan ke tabel `domains` saat startup).
 
-## 3. Menjalankan Stack
-
-Gunakan `--env-file ../backend/.env` (atau buat symlink `ln -sf ../backend/.env .env` di folder `deploy/`) agar Docker Compose membaca `WEB_PORT`:
+## 2. Jalankan Build & Start Otomatis
 
 ```bash
-cd deploy
+cd ~/BB-Mail/deploy
 ln -sf ../backend/.env .env
 docker compose up -d --build
 ```
 
-## 4. Bootstrap Akun Admin Pertama
+Apa yang terjadi secara otomatis saat perintah di atas dijalankan:
+1. **`baramail-mysql`** menyala dan lewat *healthcheck*-nya otomatis membuat database `DB_NAME` serta user `DB_USER` + `DB_PASSWORD` sesuai isi `backend/.env` (meskipun volume MySQL sudah pernah dibuat sebelumnya).
+2. **`baramail-backend`** meng-compile aplikasi Go, menunggu MySQL siap, menjalankan migrasi seluruh tabel (`migrations/001_initial_schema.sql`), mengisi daftar domain awal (`ALLOWED_EMAIL_DOMAINS`), dan membuat akun admin (`ADMIN_INITIAL_USERNAME` & `ADMIN_INITIAL_PASSWORD`).
+3. **`baramail-caddy`** meng-compile frontend Vue 3 (`deploy/Dockerfile.caddy`) dan langsung menyajikan web + proxy `/api` pada port `WEB_PORT` (default `8085`).
 
-Akun admin pertama hanya dapat dibuat melalui CLI (tidak ada endpoint registrasi publik):
+## 3. Reset Password / Tambah Admin Manual via CLI (Opsional)
 
-```bash
-docker exec -it baramail-backend /app/baramail-cli admin create \
-  --username admin \
-  --password "PasswordKuatMinimal8Karakter!" \
-  --email "admin@example.com"
-```
-
-Untuk mereset password admin:
+Jika di kemudian hari Anda ingin mereset password atau menambah akun admin lain:
 
 ```bash
 docker exec -it baramail-backend /app/baramail-cli admin reset-password \
   --username admin \
   --password "PasswordBaruYangKuat!"
-```
-
-## 5. Cloudflare Tunnel
-
-Arahkan public hostname aplikasi (mis. `app.example.com`) pada Cloudflare Tunnel ke `http://127.0.0.1:<WEB_PORT>` (mis. `http://127.0.0.1:8085`).
-Pastikan `TRUSTED_PROXIES` di `backend/.env` mencakup subnet Docker/loopback tempat Caddy berada sehingga backend membaca `CF-Connecting-IP` untuk rate limiting.
-
-## 6. Backup MySQL & Retensi
-
-Jalankan backup harian dengan `mysqldump --single-transaction` dan batasi masa simpan backup maksimal **14 hari** agar selaras dengan kebijakan retensi pesan:
-
-```bash
-docker exec baramail-mysql mysqldump -u root -p"$DB_PASSWORD" --single-transaction baramail \
-  | gzip > /var/backups/baramail/baramail-$(date -u +%Y%m%d).sql.gz
-
-find /var/backups/baramail -name "baramail-*.sql.gz" -mtime +14 -delete
 ```

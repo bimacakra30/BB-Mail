@@ -12,17 +12,26 @@ services:
         export MYSQL_DATABASE="$${DB_NAME:-baramail}"
         export MYSQL_USER="$${DB_USER:-baramail_user}"
         export MYSQL_PASSWORD="$${DB_PASSWORD:-CHANGE_ME}"
-        export MYSQL_ROOT_PASSWORD="$${DB_ROOT_PASSWORD:-$${DB_PASSWORD:-change_root_password}}"
+        export MYSQL_ROOT_PASSWORD="$${DB_ROOT_PASSWORD:-change_root_password}"
         exec docker-entrypoint.sh mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci --default-time-zone=+00:00
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u \"$$DB_USER\" -p\"$$DB_PASSWORD\""]
+      test:
+        - CMD-SHELL
+        - |
+          mysql -h 127.0.0.1 -u root -p"$${DB_ROOT_PASSWORD:-change_root_password}" -e "
+            CREATE DATABASE IF NOT EXISTS \`$${DB_NAME:-baramail}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+            CREATE USER IF NOT EXISTS '$${DB_USER:-baramail_user}'@'%' IDENTIFIED BY '$${DB_PASSWORD:-CHANGE_ME}';
+            ALTER USER '$${DB_USER:-baramail_user}'@'%' IDENTIFIED BY '$${DB_PASSWORD:-CHANGE_ME}';
+            GRANT ALL PRIVILEGES ON \`$${DB_NAME:-baramail}\`.* TO '$${DB_USER:-baramail_user}'@'%';
+            FLUSH PRIVILEGES;
+          "
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
 
   backend:
     build:
@@ -44,16 +53,15 @@ services:
       - internal
 
   caddy:
-    image: caddy:2.8-alpine
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.caddy
     container_name: baramail-caddy
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "${WEB_PORT:-8085}:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ../frontend/dist:/srv/frontend:ro
     networks:
       - internal
 

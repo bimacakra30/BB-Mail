@@ -25,9 +25,11 @@ type Config struct {
 	DBPassword string
 	DBParams   string
 
-	AdminSessionSecret string
-	AdminSessionTTL    time.Duration
-	InboxTokenSecret   string
+	AdminSessionSecret   string
+	AdminSessionTTL      time.Duration
+	AdminInitialUsername string
+	AdminInitialPassword string
+	InboxTokenSecret     string
 	InboxTokenTTL      time.Duration
 	WebhookSecret      string
 	WebhookSecretPrev  string
@@ -95,9 +97,11 @@ func Load(envPath string) (*Config, error) {
 		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBParams:   getEnv("DB_PARAMS", "parseTime=true&loc=UTC&charset=utf8mb4"),
 
-		AdminSessionSecret: getEnv("ADMIN_SESSION_SECRET", ""),
-		AdminSessionTTL:    time.Duration(sessionTTLHours) * time.Hour,
-		InboxTokenSecret:   getEnv("INBOX_TOKEN_SECRET", ""),
+		AdminSessionSecret:   getEnv("ADMIN_SESSION_SECRET", ""),
+		AdminSessionTTL:      time.Duration(sessionTTLHours) * time.Hour,
+		AdminInitialUsername: getEnv("ADMIN_INITIAL_USERNAME", ""),
+		AdminInitialPassword: getEnv("ADMIN_INITIAL_PASSWORD", ""),
+		InboxTokenSecret:     getEnv("INBOX_TOKEN_SECRET", ""),
 		InboxTokenTTL:      time.Duration(inboxTTLMinutes) * time.Minute,
 		WebhookSecret:      getEnv("WEBHOOK_SECRET", ""),
 		WebhookSecretPrev:  getEnv("WEBHOOK_SECRET_PREVIOUS", ""),
